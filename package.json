@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "progress": "^2.0.0",
     "puppeteer": "^1.2.0"
   },
   "devDependencies": {},
