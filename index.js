@@ -5,7 +5,7 @@ const Progress = require('progress');
 const puppeteer = require('puppeteer');
 
 const MBP_CHROME_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36";
-const MAIN_URL = 'http://www.shuwulou.com/shu/80.html';
+const MAIN_URL = 'http://www.xinshubao.net/0/639/';
 const CACHE_DIR = './cache';
 
 //  如果cache目录不存在则创建
@@ -15,14 +15,20 @@ if (!fs.existsSync(CACHE_DIR)) {
 
 (async () => {
   try {
+    console.log('BEGIN...');
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
+    console.log('设置agent');
     page.setUserAgent(MBP_CHROME_USER_AGENT);
 
     // 跳转到列表页
-    await page.goto(MAIN_URL);
+    console.log('跳转到首页');
+    await page.goto(MAIN_URL, {
+      timeout: 0,
+    });
 
     // 所有章节的索引
+    console.log('获取章节索引');
     const episodeIndexes = await getEpisodeIndexes(page);
     // console.log(episodeIndexes);
 
@@ -30,12 +36,14 @@ if (!fs.existsSync(CACHE_DIR)) {
     const progressBar = createProgressBar(episodeIndexes.length);
 
     // 根据索引获取章节，并写入文件
+    console.log('获取章节, 并写入文件');
     for (let episodeIdx of episodeIndexes) {
       const episodeEx = await getEpisode(page, episodeIdx);
       await writeEpisode(episodeEx);
       progressBar.tick();
     }
 
+    console.log('END.');
     await browser.close();
   } catch (e) {
     console.log(e);
@@ -52,7 +60,7 @@ if (!fs.existsSync(CACHE_DIR)) {
  *  ]
  */
 async function getEpisodeIndexes (page) {
-  const novelListSelector = 'dd > a';
+  const novelListSelector = '._chapter > li > a';
   await page.waitForSelector(novelListSelector);
   const links = await page.evaluate(selector => {
     const anchors = Array.from(document.querySelectorAll(selector));
@@ -73,7 +81,10 @@ async function getEpisodeIndexes (page) {
 async function getEpisode (page, episode) {
   const contentSelector = '#content';
   const [title, url] = episode;
-  await page.goto(url);
+  console.log(title, url, "\n");
+  await page.goto(url, {
+    timeout: 0
+  });
   await page.waitForSelector(contentSelector);
 
   const content = await page.evaluate(selector => {
@@ -92,11 +103,22 @@ async function writeEpisode (episode) {
   let [title, content, url] = episode;
   title = title.replace(' ', '-');
 
+  // 为content增加title
+  content = injectTitle(content, title);
+
   // 为了方便shell合并文件，把序列号加到前面
   const seqNum  = title.match(/\d+/)[0];
   title = `${seqNum}_${title}`;
 
   fs.writeFileSync(`${CACHE_DIR}/${title}`, content);
+}
+
+/**
+ *  为content增加title
+ */
+function injectTitle (content, title) {
+  if (/第\d+?章/.test(content)) return content;
+  return `\n\n${title}\n\n${content}`;
 }
 
 /**

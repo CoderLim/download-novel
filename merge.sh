@@ -1,2 +1,6 @@
-!/bin/bash
-cat ./cache/{1..902}_* > merge.txt
+#!/bin/bash
+
+for i in $(ls -tr cache)
+do
+  cat ./cache/$i >> final.txt
+done
